@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Рулетка Ичи</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #ffedd6;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    h1 {
+      color: #e2519b;
+      margin: 30px 0 10px 0;
+      font-size: 42px;
+      text-shadow: 1px 1px 2px #fff;
+    }
+    .wheel-container {
+      position: relative;
+      width: 360px;
+      height: 360px;
+      margin: 60px auto 20px auto;
+    }
+    .wheel {
+      width: 100%;
+      height: 100%;
+      border: 12px solid #333;
+      border-radius: 50%;
+      position: relative;
+      transition: transform 5s ease-out;
+    }
+    .arrow {
+      width: 0; 
+      height: 0; 
+      border-left: 20px solid transparent;
+      border-right: 20px solid transparent;
+      border-bottom: 40px solid #e2519b;
+      position: absolute;
+      top: -45px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    #result {
+      margin-top: 25px;
+      font-size: 22px;
+      font-weight: bold;
+      color: #fff;
+      background: #e2519b;
+      padding: 15px 25px;
+      border-radius: 12px;
+      display: inline-block;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    #spin {
+      margin-top: 30px;
+      padding: 20px 50px;
+      font-size: 24px;
+      background: #fccc0a;
+      border: none;
+      cursor: pointer;
+      border-radius: 12px;
+      font-weight: bold;
+      color: #333;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transition: 0.3s;
+    }
+    #spin:disabled {
+      background: #ccc;
+      color: #666;
+      cursor: not-allowed;
+    }
+    #timer {
+      margin-top: 15px;
+      font-size: 18px;
+      color: #333;
+      font-weight: bold;
+    }
+    .jackpot {
+      animation: flash 0.6s infinite alternate;
+    }
+    @keyframes flash {
+      from { background: #fccc0a; color: #000; }
+      to   { background: #e2519b; color: #fff; }
+    }
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      background: red;
+      animation: fall linear forwards;
+    }
+    @keyframes fall {
+      to {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎰 Рулетка Ичи</h1>
+
+  <div class="wheel-container">
+    <div class="arrow"></div>
+    <div class="wheel" id="wheel"></div>
+  </div>
+
+  <div id="result">Ваш приз появится здесь</div>
+  <br>
+  <button id="spin">🔥 Испытать удачу!</button>
+  <div id="timer"></div>
+
+  <script>
+    const prizes = [
+      {text: "Скидка 5%", code: "ICHI5"},
+      {text: "Скидка 10%", code: "ICHI10"},
+      {text: "Брусничный морс", code: "MORSBRUS"},
+      {text: "Облепиховый морс", code: "MORSOBL"},
+      {text: "Онигири с курицей", code: "ONIGIRI"},
+      {text: "Сио рамен", code: "SHIORAMEN"},
+      {text: "Филадельфия Лайт", code: "PHILIGHT"},
+      {text: "Гёдза мясо", code: "GYOSAMEAT"},
+      {text: "Лимонад Мохито", code: "MOJITO"},
+      {text: "Скидка 15%", code: "ICHI15"},
+      {text: "🎉 ДЖЕКПОТ! Скидка 20%", code: "JACKPOT20"},
+      {text: "Проигрыш 😢", code: null}
+    ];
+
+    const brandColors = ["#fccc0a", "#ffedd6", "#e2519b", "#ff72bf"];
+    const wheel = document.getElementById("wheel");
+    const resultBox = document.getElementById("result");
+    const spinButton = document.getElementById("spin");
+    const timerBox = document.getElementById("timer");
+
+    const segmentAngle = 360 / prizes.length;
+
+    // Генерация сегментов
+    let gradient = "conic-gradient(";
+    prizes.forEach((p, i) => {
+      const start = i * segmentAngle;
+      const end = (i + 1) * segmentAngle;
+      const color = brandColors[i % brandColors.length];
+      gradient += `${color} ${start}deg ${end}deg,`;
+    });
+    gradient = gradient.slice(0, -1) + ")";
+    wheel.style.background = gradient;
+
+    // Ограничение
+    const SPIN_DELAY = 12 * 60 * 60 * 1000; // 12 часов
+    checkCooldown();
+
+    spinButton.onclick = () => {
+      let lastSpin = Date.now();
+      localStorage.setItem("lastSpin", lastSpin);
+      checkCooldown();
+
+      resultBox.classList.remove("jackpot");
+      resultBox.innerHTML = "Крутим...";
+
+      let deg = Math.floor(5000 + Math.random() * 5000);
+      wheel.style.transition = "transform 5s ease-out";
+      wheel.style.transform = `rotate(${deg}deg)`;
+
+      setTimeout(() => {
+        const actualDeg = deg % 360;
+        const winIndex = Math.floor(prizes.length - (actualDeg / segmentAngle)) % prizes.length;
+        const prize = prizes[winIndex];
+
+        let res = `Ваш приз: ${prize.text}`;
+        if (prize.code) {
+          res += `<br>Ваш промокод: <b>${prize.code}</b>`;
+        }
+        resultBox.innerHTML = res;
+
+        if (prize.code === "JACKPOT20") {
+          resultBox.classList.add("jackpot");
+          launchConfetti();
+        }
+      }, 5000);
+    };
+
+    function checkCooldown() {
+      let lastSpin = localStorage.getItem("lastSpin");
+      if (lastSpin) {
+        let diff = Date.now() - lastSpin;
+        if (diff < SPIN_DELAY) {
+          spinButton.disabled = true;
+          updateTimer(SPIN_DELAY - diff);
+          let interval = setInterval(() => {
+            let remaining = SPIN_DELAY - (Date.now() - lastSpin);
+            if (remaining <= 0) {
+              clearInterval(interval);
+              spinButton.disabled = false;
+              timerBox.innerHTML = "";
+            } else {
+              updateTimer(remaining);
+            }
+          }, 1000);
+        }
+      }
+    }
+
+    function updateTimer(ms) {
+      let h = Math.floor(ms / (1000 * 60 * 60));
+      let m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+      let s = Math.floor((ms % (1000 * 60)) / 1000);
+      timerBox.innerHTML = `⏳ Следующая попытка через: ${h}ч ${m}м ${s}с`;
+    }
+
+    function launchConfetti() {
+      for (let i = 0; i < 60; i++) {
+        const confetti = document.createElement("div");
+        confetti.className = "confetti";
+        document.body.appendChild(confetti);
+
+        confetti.style.left = Math.random() * window.innerWidth + "px";
+        confetti.style.backgroundColor = brandColors[Math.floor(Math.random() * brandColors.length)];
+        confetti.style.animationDuration = (2 + Math.random() * 3) + "s";
+
+        setTimeout(() => confetti.remove(), 5000);
+      }
+    }
+  </script>
+</body>
+</html>
